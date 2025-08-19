@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🏓 Pong Multijugador Pro</title>
+    <title>🚀 Super Pong Multijugador Pro</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -14,16 +14,21 @@
             <div class="player-score">
                 <span class="player-label">Jugador 1</span>
                 <span class="score" id="score1">0</span>
+                <div class="ready-status" id="player1Ready">⏳ Esperando...</div>
             </div>
             <div class="vs">VS</div>
             <div class="player-score">
                 <span class="player-label">Jugador 2</span>
                 <span class="score" id="score2">0</span>
+                <div class="ready-status" id="player2Ready">⏳ Esperando...</div>
             </div>
         </div>
         
         <!-- Canvas donde se dibuja el juego -->
         <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <!-- Cuenta regresiva superpuesta -->
+        <div id="countdownDisplay" class="countdown-display hidden">3</div>
         
         <!-- Mensajes del juego -->
         <div class="game-messages">
@@ -37,9 +42,16 @@
             </div>
         </div>
         
-        <!-- Información de power-ups -->
+        <!-- Botón de Ready -->
+        <div class="ready-section">
+            <button id="readyButton" onclick="markPlayerReady()" class="ready-button hidden">
+                🎮 Estoy Listo
+            </button>
+        </div>
+        
+        <!-- Información de power-ups avanzados -->
         <div class="powerups-info">
-            <h3>⚡ Power-ups Disponibles:</h3>
+            <h3>⚡ Power-ups Avanzados:</h3>
             <div class="powerup-grid">
                 <div class="powerup-item">
                     <span class="powerup-icon">⚡</span>
@@ -52,26 +64,69 @@
                     <span class="powerup-desc">Paleta más grande</span>
                 </div>
                 <div class="powerup-item">
+                    <span class="powerup-icon">👻</span>
+                    <span class="powerup-name">Invisibilidad</span>
+                    <span class="powerup-desc">Paleta invisible</span>
+                </div>
+                <div class="powerup-item">
+                    <span class="powerup-icon">🌀</span>
+                    <span class="powerup-name">Teleport</span>
+                    <span class="powerup-desc">Teleportar paleta</span>
+                </div>
+                <div class="powerup-item">
                     <span class="powerup-icon">🔴</span>
                     <span class="powerup-name">Multi-Ball</span>
                     <span class="powerup-desc">Pelotas extra</span>
+                </div>
+                <div class="powerup-item">
+                    <span class="powerup-icon">🛡️</span>
+                    <span class="powerup-name">Escudo</span>
+                    <span class="powerup-desc">Protección extra</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Información de obstáculos -->
+        <div class="obstacles-info">
+            <h3>🎯 Obstáculos del Campo:</h3>
+            <div class="obstacle-grid">
+                <div class="obstacle-item">
+                    <span class="obstacle-icon">■</span>
+                    <span class="obstacle-name">Bloque</span>
+                    <span class="obstacle-desc">Destructible</span>
+                </div>
+                <div class="obstacle-item">
+                    <span class="obstacle-icon">⚡</span>
+                    <span class="obstacle-name">Campo de Fuerza</span>
+                    <span class="obstacle-desc">Rebota pelotas</span>
+                </div>
+                <div class="obstacle-item">
+                    <span class="obstacle-icon">🌀</span>
+                    <span class="obstacle-name">Teleporter</span>
+                    <span class="obstacle-desc">Teleporta pelotas</span>
                 </div>
             </div>
         </div>
         
         <!-- Instrucciones del juego -->
         <div class="instructions">
-            <h3>🎮 Controles del Juego:</h3>
+            <h3>🎮 Controles del Super Pong:</h3>
             <p><strong>Jugador 1 (Izquierda):</strong> Teclas <kbd>W</kbd> (arriba) y <kbd>S</kbd> (abajo)</p>
             <p><strong>Jugador 2 (Derecha):</strong> Teclas <kbd>↑</kbd> (arriba) y <kbd>↓</kbd> (abajo)</p>
             <p><strong>Objetivo:</strong> Primer jugador en llegar a 5 puntos gana</p>
-            <p><strong>Características:</strong> Física realista, velocidad progresiva y power-ups especiales</p>
+            <p><strong>Características:</strong> Física realista, velocidad progresiva, power-ups épicos y obstáculos</p>
+            <p><strong>Mejoras:</strong> Movimiento instantáneo sin delay, efectos visuales avanzados</p>
+            <p><strong>Nuevo:</strong> Sistema de ready y cuenta regresiva antes de cada partida</p>
         </div>
         
         <!-- Footer con información adicional -->
         <div class="game-footer">
             <p>🎯 <strong>Consejo:</strong> Los power-ups aparecen cuando la pelota golpea las paletas</p>
             <p>🚀 <strong>Característica:</strong> La pelota se acelera progresivamente para mayor desafío</p>
+            <p>⚡ <strong>Novedad:</strong> Obstáculos que cambian la dinámica del juego</p>
+            <p>🔥 <strong>Super Pong:</strong> Power-ups avanzados como invisibilidad y teleport</p>
+            <p>🎮 <strong>Sistema Ready:</strong> Cada jugador debe confirmar que está listo</p>
+            <p>⏱️ <strong>Cuenta Regresiva:</strong> 3, 2, 1... ¡GO! antes de cada partida</p>
         </div>
     </div>
     

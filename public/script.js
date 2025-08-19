@@ -6,12 +6,13 @@ let gameState = {}; // Estado actual del juego
 let keys = {}; // Estado de las teclas presionadas
 let particles = []; // Partículas para efectos visuales
 let lastTime = 0; // Último tiempo para animaciones
+let countdownDisplay = null; // Elemento para mostrar la cuenta regresiva
+let readyButton = null; // Botón de ready
 
-// Configuración de controles mejorados
+// Configuración de controles optimizados para Super Pong
 const CONTROLS = {
-    PADDLE_ACCELERATION: 0.8,
-    PADDLE_MAX_SPEED: 12,
-    PADDLE_FRICTION: 0.85
+    PADDLE_MOVE_SPEED: 15,     // Velocidad de movimiento directo
+    PADDLE_BOUNDS: { min: 50, max: 550 } // Límites de las paletas
 };
 
 // Función de inicialización del juego
@@ -23,6 +24,10 @@ function initGame() {
     // Configuramos el canvas para mejor calidad
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
+    
+    // Obtenemos elementos de la UI
+    countdownDisplay = document.getElementById('countdownDisplay');
+    readyButton = document.getElementById('readyButton');
     
     // Conectamos con el servidor Socket.io
     socket = io();
@@ -41,7 +46,7 @@ function initGame() {
 function setupSocketEvents() {
     // Cuando nos conectamos al servidor
     socket.on('connect', () => {
-        console.log('Conectado al servidor');
+        console.log('Conectado al servidor Super Pong');
     });
     
     // Cuando recibimos el estado del juego
@@ -50,10 +55,21 @@ function setupSocketEvents() {
         updateUI();
     });
     
+    // Cuando la cuenta regresiva se actualiza
+    socket.on('countdownUpdate', (data) => {
+        showCountdown(data.countdown);
+    });
+    
+    // Cuando la pelota comienza a moverse
+    socket.on('ballStart', (data) => {
+        console.log('¡La pelota ha comenzado a moverse!');
+        createStartEffect();
+    });
+    
     // Cuando el juego inicia
-    socket.on('gameStart', () => {
-        console.log('¡El juego ha comenzado!');
-        document.getElementById('waitingMessage').classList.add('hidden');
+    socket.on('gameStarted', () => {
+        console.log('¡Super Pong ha comenzado!');
+        hideCountdown();
         createStartEffect();
     });
     
@@ -61,14 +77,19 @@ function setupSocketEvents() {
     socket.on('paddleMoved', (data) => {
         // Actualizamos la posición de la paleta correspondiente
         if (data.player === 1) {
-            gameState.paddle1.speed = data.speed;
+            gameState.paddle1.y = data.y;
         } else if (data.player === 2) {
-            gameState.paddle2.speed = data.speed;
+            gameState.paddle2.y = data.y;
         }
+    });
+    
+    // Cuando un jugador está listo
+    socket.on('playerReadyUpdate', (data) => {
+        updateReadyStatus(data.player, data.ready);
     });
 }
 
-// Configuración de los controles del teclado mejorados
+// Configuración de los controles del teclado optimizados
 function setupKeyboardControls() {
     // Evento cuando se presiona una tecla
     document.addEventListener('keydown', (e) => {
@@ -82,66 +103,136 @@ function setupKeyboardControls() {
     });
 }
 
-// Manejo del movimiento del jugador con física mejorada
+// Manejo del movimiento del jugador - MOVIMIENTO DIRECTO SIN DELAY
 function handlePlayerMovement() {
-    let targetSpeed = 0;
+    let newY = 0;
     
     // Jugador 1: Teclas W y S
     if (playerNumber === 1) {
         if (keys['w']) {
-            targetSpeed = -CONTROLS.PADDLE_MAX_SPEED;
+            newY = gameState.paddle1.y - CONTROLS.PADDLE_MOVE_SPEED;
         } else if (keys['s']) {
-            targetSpeed = CONTROLS.PADDLE_MAX_SPEED;
+            newY = gameState.paddle1.y + CONTROLS.PADDLE_MOVE_SPEED;
         }
         
-        // Aplicar aceleración suave
-        const currentSpeed = gameState.paddle1.speed || 0;
-        const newSpeed = currentSpeed + (targetSpeed - currentSpeed) * CONTROLS.PADDLE_ACCELERATION;
-        
-        // Enviamos el movimiento al servidor
-        socket.emit('movePaddle', { player: 1, speed: newSpeed });
+        // Limitar movimiento dentro de los límites
+        if (newY !== 0) {
+            newY = Math.max(CONTROLS.PADDLE_BOUNDS.min, Math.min(CONTROLS.PADDLE_BOUNDS.max, newY));
+            
+            // Enviamos el movimiento directo al servidor
+            socket.emit('movePaddle', { player: 1, y: newY });
+        }
     }
     // Jugador 2: Teclas de flecha
     else if (playerNumber === 2) {
         if (keys['arrowup']) {
-            targetSpeed = -CONTROLS.PADDLE_MAX_SPEED;
+            newY = gameState.paddle2.y - CONTROLS.PADDLE_MOVE_SPEED;
         } else if (keys['arrowdown']) {
-            targetSpeed = CONTROLS.PADDLE_MAX_SPEED;
+            newY = gameState.paddle2.y + CONTROLS.PADDLE_MOVE_SPEED;
         }
         
-        const currentSpeed = gameState.paddle2.speed || 0;
-        const newSpeed = currentSpeed + (targetSpeed - currentSpeed) * CONTROLS.PADDLE_ACCELERATION;
+        if (newY !== 0) {
+            newY = Math.max(CONTROLS.PADDLE_BOUNDS.min, Math.min(CONTROLS.PADDLE_BOUNDS.max, newY));
+            
+            socket.emit('movePaddle', { player: 2, y: newY });
+        }
+    }
+}
+
+// Función para mostrar la cuenta regresiva
+function showCountdown(count) {
+    if (!countdownDisplay) return;
+    
+    countdownDisplay.textContent = count;
+    countdownDisplay.classList.remove('hidden');
+    countdownDisplay.classList.add('countdown-' + count);
+    
+    // Efecto de partículas para cada número
+    createCountdownEffect(count);
+}
+
+// Función para ocultar la cuenta regresiva
+function hideCountdown() {
+    if (countdownDisplay) {
+        countdownDisplay.classList.add('hidden');
+    }
+}
+
+// Función para crear efecto de partículas en la cuenta regresiva
+function createCountdownEffect(number) {
+    const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1'];
+    const color = colors[number - 1] || '#fff';
+    
+    for (let i = 0; i < 30; i++) {
+        particles.push({
+            x: 400,
+            y: 300,
+            vx: (Math.random() - 0.5) * 20,
+            vy: (Math.random() - 0.5) * 20,
+            life: 1,
+            decay: 0.03,
+            color: color,
+            size: Math.random() * 5 + 3
+        });
+    }
+}
+
+// Función para actualizar el estado de ready de un jugador
+function updateReadyStatus(player, ready) {
+    const readyElement = document.getElementById(`player${player}Ready`);
+    if (readyElement) {
+        if (ready) {
+            readyElement.textContent = '✅ Listo';
+            readyElement.classList.add('ready');
+        } else {
+            readyElement.textContent = '⏳ Esperando...';
+            readyElement.classList.remove('ready');
+        }
+    }
+}
+
+// Función para marcar jugador como listo
+function markPlayerReady() {
+    if (playerNumber > 0) {
+        socket.emit('playerReady', { player: playerNumber });
         
-        socket.emit('movePaddle', { player: 2, speed: newSpeed });
+        // Actualizar botón localmente
+        if (readyButton) {
+            readyButton.textContent = '✅ Listo';
+            readyButton.disabled = true;
+            readyButton.classList.add('ready');
+        }
     }
 }
 
 // Crear efecto de partículas al inicio
 function createStartEffect() {
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 80; i++) {
         particles.push({
             x: 400,
             y: 300,
-            vx: (Math.random() - 0.5) * 10,
-            vy: (Math.random() - 0.5) * 10,
+            vx: (Math.random() - 0.5) * 15,
+            vy: (Math.random() - 0.5) * 15,
             life: 1,
-            decay: 0.02,
-            color: `hsl(${Math.random() * 360}, 70%, 60%)`
+            decay: 0.015,
+            color: `hsl(${Math.random() * 360}, 80%, 70%)`,
+            size: Math.random() * 4 + 2
         });
     }
 }
 
 // Crear efecto de partículas al golpear
 function createHitEffect(x, y, color = '#fff') {
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 20; i++) {
         particles.push({
             x: x,
             y: y,
-            vx: (Math.random() - 0.5) * 8,
-            vy: (Math.random() - 0.5) * 8,
+            vx: (Math.random() - 0.5) * 10,
+            vy: (Math.random() - 0.5) * 10,
             life: 1,
-            decay: 0.03,
-            color: color
+            decay: 0.04,
+            color: color,
+            size: Math.random() * 3 + 1
         });
     }
 }
@@ -169,18 +260,44 @@ function updateUI() {
     
     // Actualizamos el mensaje de espera
     const waitingMessage = document.getElementById('waitingMessage');
-    waitingMessage.textContent = `Esperando jugadores... (${gameState.players.length}/2)`;
     
-    // Mostramos/ocultamos mensajes según el estado del juego
     if (gameState.gameStatus === 'waiting') {
+        waitingMessage.textContent = `⏳ Esperando jugadores... (${gameState.players.length}/2)`;
         waitingMessage.classList.remove('hidden');
         document.getElementById('gameOverMessage').classList.add('hidden');
+        
+        // Mostrar botón de ready si es el jugador actual
+        if (readyButton && playerNumber > 0) {
+            readyButton.classList.remove('hidden');
+            readyButton.disabled = false;
+            readyButton.textContent = '🎮 Estoy Listo';
+            readyButton.classList.remove('ready');
+        }
+    } else if (gameState.gameStatus === 'countdown') {
+        waitingMessage.textContent = `🎯 Preparando partida...`;
+        waitingMessage.classList.remove('hidden');
+        document.getElementById('gameOverMessage').classList.add('hidden');
+        
+        // Ocultar botón de ready durante cuenta regresiva
+        if (readyButton) {
+            readyButton.classList.add('hidden');
+        }
     } else if (gameState.gameStatus === 'finished') {
         waitingMessage.classList.add('hidden');
         showGameOverMessage();
+        
+        // Ocultar botón de ready
+        if (readyButton) {
+            readyButton.classList.add('hidden');
+        }
     } else {
         waitingMessage.classList.add('hidden');
         document.getElementById('gameOverMessage').classList.add('hidden');
+        
+        // Ocultar botón de ready durante el juego
+        if (readyButton) {
+            readyButton.classList.add('hidden');
+        }
     }
     
     // Asignamos el número de jugador si no está asignado
@@ -201,9 +318,9 @@ function showGameOverMessage() {
     
     // Determinamos quién ganó
     if (gameState.score.player1 >= 5) {
-        winnerText.textContent = '¡Jugador 1 ha ganado!';
+        winnerText.textContent = '🎉 ¡Jugador 1 ha ganado!';
     } else {
-        winnerText.textContent = '¡Jugador 2 ha ganado!';
+        winnerText.textContent = '🎉 ¡Jugador 2 ha ganado!';
     }
     
     gameOverMessage.classList.remove('hidden');
@@ -230,14 +347,20 @@ function gameLoop(currentTime = 0) {
         // Dibujamos las paletas
         drawPaddles();
         
-        // Dibujamos la pelota
+        // Dibujamos la pelota (estática durante cuenta regresiva)
         drawBall();
         
-        // Dibujamos la línea central animada
-        drawCenterLine();
+        // Dibujamos pelotas múltiples
+        drawMultiBalls();
+        
+        // Dibujamos obstáculos
+        drawObstacles();
         
         // Dibujamos power-ups
         drawPowerUps();
+        
+        // Dibujamos la línea central animada
+        drawCenterLine();
         
         // Dibujamos partículas
         drawParticles();
@@ -245,7 +368,7 @@ function gameLoop(currentTime = 0) {
         // Actualizamos partículas
         updateParticles();
         
-        // Manejamos el movimiento del jugador
+        // Manejamos el movimiento del jugador solo durante el juego
         if (gameState.gameStatus === 'playing') {
             handlePlayerMovement();
         }
@@ -266,13 +389,15 @@ function drawPaddles() {
 
 // Función para dibujar una paleta individual con efectos
 function drawPaddle(paddle, color, isCurrentPlayer) {
+    if (paddle.invisible) return; // No dibujar si es invisible
+    
     const x = paddle.x - paddle.width / 2;
     const y = paddle.y - paddle.height / 2;
     
     // Efecto de brillo si es el jugador actual
     if (isCurrentPlayer) {
         ctx.shadowColor = color;
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = 20;
     }
     
     // Dibujar paleta principal
@@ -283,11 +408,18 @@ function drawPaddle(paddle, color, isCurrentPlayer) {
     if (paddle.powerup) {
         const powerupColor = getPowerupColor(paddle.powerup.type);
         ctx.fillStyle = powerupColor;
-        ctx.fillRect(x - 2, y - 2, paddle.width + 4, paddle.height + 4);
+        ctx.fillRect(x - 3, y - 3, paddle.width + 6, paddle.height + 6);
         
         // Restaurar color principal
         ctx.fillStyle = color;
         ctx.fillRect(x, y, paddle.width, paddle.height);
+        
+        // Efecto de escudo
+        if (paddle.powerup.type === 'shield') {
+            ctx.strokeStyle = powerupColor;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x - 5, y - 5, paddle.width + 10, paddle.height + 10);
+        }
     }
     
     // Resetear sombra
@@ -299,7 +431,10 @@ function getPowerupColor(type) {
     switch (type) {
         case 'speed': return '#00ff00';
         case 'size': return '#ff00ff';
+        case 'invisibility': return '#888888';
+        case 'teleport': return '#00ffff';
         case 'multiBall': return '#ffff00';
+        case 'shield': return '#ff8800';
         default: return '#ffffff';
     }
 }
@@ -310,7 +445,7 @@ function drawBall() {
     
     // Efecto de brillo
     ctx.shadowColor = '#fff';
-    ctx.shadowBlur = 20;
+    ctx.shadowBlur = 25;
     
     // Pelota principal
     ctx.fillStyle = '#fff';
@@ -318,21 +453,108 @@ function drawBall() {
     ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
     ctx.fill();
     
-    // Efecto de velocidad (trail)
-    const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
-    const trailLength = Math.min(speed * 2, 20);
-    
-    if (trailLength > 5) {
-        ctx.globalAlpha = 0.3;
-        ctx.fillStyle = '#fff';
+    // Si la pelota no se está moviendo, añadir efecto de "pulso"
+    if (!ball.moving) {
+        ctx.strokeStyle = '#ff6b6b';
+        ctx.lineWidth = 3;
+        ctx.globalAlpha = 0.7;
         ctx.beginPath();
-        ctx.arc(ball.x - ball.dx * 0.5, ball.y - ball.dy * 0.5, ball.radius * 0.7, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.arc(ball.x, ball.y, ball.radius + 5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        
+        // Texto "LISTO" sobre la pelota
+        ctx.fillStyle = '#ff6b6b';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('LISTO', ball.x, ball.y - 30);
+    }
+    
+    // Trail de la pelota solo si se está moviendo
+    if (ball.moving && ball.trail && ball.trail.length > 0) {
+        ball.trail.forEach((pos, index) => {
+            const alpha = (ball.trail.length - index) / ball.trail.length;
+            ctx.globalAlpha = alpha * 0.3;
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, ball.radius * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+        });
         ctx.globalAlpha = 1;
     }
     
     // Resetear efectos
     ctx.shadowBlur = 0;
+}
+
+// Función para dibujar pelotas múltiples
+function drawMultiBalls() {
+    if (!gameState.multiBalls) return;
+    
+    gameState.multiBalls.forEach(ball => {
+        ctx.fillStyle = '#ff6b6b';
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Trail de pelotas múltiples
+        if (ball.trail && ball.trail.length > 0) {
+            ball.trail.forEach((pos, index) => {
+                const alpha = (ball.trail.length - index) / ball.trail.length;
+                ctx.globalAlpha = alpha * 0.2;
+                ctx.fillStyle = '#ff6b6b';
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, ball.radius * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+        }
+    });
+}
+
+// Función para dibujar obstáculos
+function drawObstacles() {
+    if (!gameState.obstacles) return;
+    
+    gameState.obstacles.forEach(obstacle => {
+        if (obstacle.active) {
+            let color, symbol;
+            
+            switch (obstacle.type) {
+                case 'block':
+                    color = '#ff4444';
+                    symbol = '■';
+                    break;
+                case 'forceField':
+                    color = '#4444ff';
+                    symbol = '⚡';
+                    break;
+                case 'teleporter':
+                    color = '#44ff44';
+                    symbol = '🌀';
+                    break;
+            }
+            
+            // Efecto de brillo
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 15;
+            
+            // Obstáculo principal
+            ctx.fillStyle = color;
+            ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+            
+            // Símbolo del obstáculo
+            ctx.fillStyle = '#000';
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(symbol, obstacle.x + obstacle.width/2, obstacle.y + obstacle.height/2);
+            
+            // Resetear sombra
+            ctx.shadowBlur = 0;
+        }
+    });
 }
 
 // Función para dibujar la línea central animada
@@ -370,17 +592,17 @@ function drawPowerUps() {
             
             // Efecto de brillo
             ctx.shadowColor = color;
-            ctx.shadowBlur = 10;
+            ctx.shadowBlur = 15;
             
             // Power-up principal
             ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.arc(powerup.x, powerup.y, 15, 0, Math.PI * 2);
+            ctx.arc(powerup.x, powerup.y, 18, 0, Math.PI * 2);
             ctx.fill();
             
             // Símbolo del power-up
             ctx.fillStyle = '#000';
-            ctx.font = '16px Arial';
+            ctx.font = '18px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
@@ -388,7 +610,10 @@ function drawPowerUps() {
             switch (powerup.type) {
                 case 'speed': symbol = '⚡'; break;
                 case 'size': symbol = '⬆️'; break;
+                case 'invisibility': symbol = '👻'; break;
+                case 'teleport': symbol = '🌀'; break;
                 case 'multiBall': symbol = '🔴'; break;
+                case 'shield': symbol = '🛡️'; break;
             }
             
             ctx.fillText(symbol, powerup.x, powerup.y);
@@ -405,7 +630,7 @@ function drawParticles() {
         ctx.globalAlpha = particle.life;
         ctx.fillStyle = particle.color;
         ctx.beginPath();
-        ctx.arc(particle.x, particle.y, 3, 0, Math.PI * 2);
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
         ctx.fill();
     });
     ctx.globalAlpha = 1;

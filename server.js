@@ -14,68 +14,173 @@ const io = socketIo(server);
 // Configuramos Express para servir archivos estáticos desde la carpeta 'public'
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Constantes del juego para mejor balance
+// Constantes del juego para Super Pong
 const GAME_CONFIG = {
-    PADDLE_SPEED: 8,           // Velocidad de las paletas
-    BALL_INITIAL_SPEED: 4,     // Velocidad inicial de la pelota
-    BALL_MAX_SPEED: 12,        // Velocidad máxima de la pelota
-    BALL_ACCELERATION: 0.2,    // Aceleración por segundo
-    PADDLE_BOUNCE_FACTOR: 1.2, // Factor de rebote en paletas
-    WALL_BOUNCE_FACTOR: 0.8,   // Factor de rebote en paredes
-    POWERUP_CHANCE: 0.1,       // Probabilidad de spawn de power-up
-    POWERUP_DURATION: 10000    // Duración del power-up en ms
+    PADDLE_SPEED: 15,          // Velocidad instantánea de las paletas
+    BALL_INITIAL_SPEED: 6,     // Velocidad inicial de la pelota
+    BALL_MAX_SPEED: 18,        // Velocidad máxima de la pelota
+    BALL_ACCELERATION: 0.3,    // Aceleración por segundo
+    PADDLE_BOUNCE_FACTOR: 1.3, // Factor de rebote en paletas
+    WALL_BOUNCE_FACTOR: 0.9,   // Factor de rebote en paredes
+    POWERUP_CHANCE: 0.15,      // Probabilidad de spawn de power-up
+    POWERUP_DURATION: 8000,    // Duración del power-up en ms
+    OBSTACLE_CHANCE: 0.1,      // Probabilidad de spawn de obstáculo
+    MAX_POWERUPS: 3,           // Máximo de power-ups simultáneos
+    MAX_OBSTACLES: 2,          // Máximo de obstáculos simultáneos
+    COUNTDOWN_DURATION: 3000,  // Duración de la cuenta regresiva en ms
+    BALL_START_DELAY: 1000     // Delay antes de que la pelota se mueva
 };
 
 // Variables del juego que se mantienen en el servidor
 let gameState = {
-    // Posiciones de las paletas (x, y)
-    paddle1: { x: 50, y: 300, width: 20, height: 100, speed: 0, powerup: null },
-    paddle2: { x: 750, y: 300, width: 20, height: 100, speed: 0, powerup: null },
+    // Posiciones de las paletas (x, y) - MOVIMIENTO DIRECTO SIN DELAY
+    paddle1: { x: 50, y: 300, width: 20, height: 100, powerup: null, invisible: false, ready: false },
+    paddle2: { x: 750, y: 300, width: 20, height: 100, powerup: null, invisible: false, ready: false },
     // Posición y velocidad de la pelota
     ball: { 
         x: 400, y: 300, 
-        dx: GAME_CONFIG.BALL_INITIAL_SPEED, 
-        dy: GAME_CONFIG.BALL_INITIAL_SPEED * 0.5,
+        dx: 0, 
+        dy: 0,
         radius: 8,
-        speed: GAME_CONFIG.BALL_INITIAL_SPEED
+        speed: GAME_CONFIG.BALL_INITIAL_SPEED,
+        trail: [], // Trail de la pelota para efectos visuales
+        moving: false // Si la pelota se está moviendo
     },
     // Puntuación de cada jugador
     score: { player1: 0, player2: 0 },
-    // Estado del juego (esperando, jugando, terminado, pausado)
+    // Estado del juego (waiting, countdown, playing, finished, pausado)
     gameStatus: 'waiting',
     // Jugadores conectados
     players: [],
     // Power-ups activos
     powerups: [],
+    // Obstáculos en el campo
+    obstacles: [],
     // Tiempo del juego para aceleración progresiva
     gameTime: 0,
     // Último tiempo de actualización
     lastUpdate: Date.now(),
     // Línea central animada
-    centerLine: { offset: 0 }
+    centerLine: { offset: 0 },
+    // Modo de juego actual
+    gameMode: 'classic', // classic, turbo, chaos
+    // Pelotas múltiples (para modo caos)
+    multiBalls: [],
+    // Efectos especiales activos
+    effects: [],
+    // Sistema de cuenta regresiva
+    countdown: 3,
+    // Tiempo de inicio de la partida
+    gameStartTime: null
 };
+
+// Función para generar dirección aleatoria de la pelota
+function getRandomBallDirection() {
+    // Generar ángulo aleatorio entre -45 y 45 grados (o 135 y 225)
+    const angle = (Math.random() * 90 - 45) * (Math.PI / 180);
+    
+    // Decidir aleatoriamente si va hacia la izquierda o derecha
+    const direction = Math.random() < 0.5 ? -1 : 1;
+    
+    return {
+        dx: Math.cos(angle) * GAME_CONFIG.BALL_INITIAL_SPEED * direction,
+        dy: Math.sin(angle) * GAME_CONFIG.BALL_INITIAL_SPEED
+    };
+}
+
+// Función para generar posición inicial aleatoria de la pelota
+function getRandomBallPosition() {
+    // Posición X centrada con pequeña variación
+    const x = 400 + (Math.random() - 0.5) * 100;
+    // Posición Y con más variación para mayor aleatoriedad
+    const y = 150 + Math.random() * 300;
+    
+    return { x, y };
+}
 
 // Función para reiniciar el estado del juego
 function resetGame() {
+    // Posición aleatoria de la pelota
+    const randomPos = getRandomBallPosition();
+    const randomDir = getRandomBallDirection();
+    
     gameState.ball = { 
-        x: 400, y: 300, 
-        dx: GAME_CONFIG.BALL_INITIAL_SPEED, 
-        dy: GAME_CONFIG.BALL_INITIAL_SPEED * 0.5,
+        x: randomPos.x,
+        y: randomPos.y,
+        dx: 0, // La pelota no se mueve hasta que empiece la cuenta regresiva
+        dy: 0,
         radius: 8,
-        speed: GAME_CONFIG.BALL_INITIAL_SPEED
+        speed: GAME_CONFIG.BALL_INITIAL_SPEED,
+        trail: [],
+        moving: false
     };
-    gameState.paddle1 = { x: 50, y: 300, width: 20, height: 100, speed: 0, powerup: null };
-    gameState.paddle2 = { x: 750, y: 300, width: 20, height: 100, speed: 0, powerup: null };
-    gameState.gameStatus = 'playing';
+    
+    // Resetear paletas
+    gameState.paddle1 = { x: 50, y: 300, width: 20, height: 100, powerup: null, invisible: false, ready: false };
+    gameState.paddle2 = { x: 750, y: 300, width: 20, height: 100, powerup: null, invisible: false, ready: false };
+    
+    // Resetear otros elementos
+    gameState.gameStatus = 'countdown';
     gameState.powerups = [];
+    gameState.obstacles = [];
+    gameState.multiBalls = [];
+    gameState.effects = [];
     gameState.gameTime = 0;
     gameState.lastUpdate = Date.now();
+    gameState.countdown = 3;
+    gameState.gameStartTime = null;
+    
+    // Iniciar cuenta regresiva
+    startCountdown();
 }
 
-// Función para crear un power-up aleatorio
+// Función para iniciar la cuenta regresiva
+function startCountdown() {
+    gameState.countdown = 3;
+    gameState.gameStatus = 'countdown';
+    
+    // Enviar estado inicial
+    io.emit('gameState', gameState);
+    
+    const countdownInterval = setInterval(() => {
+        gameState.countdown--;
+        
+        if (gameState.countdown > 0) {
+            // Enviar actualización de cuenta regresiva
+            io.emit('countdownUpdate', { countdown: gameState.countdown });
+        } else {
+            // Iniciar el juego
+            clearInterval(countdownInterval);
+            startGame();
+        }
+    }, 1000);
+}
+
+// Función para iniciar el juego
+function startGame() {
+    gameState.gameStatus = 'playing';
+    gameState.gameStartTime = Date.now();
+    
+    // Generar dirección aleatoria para la pelota
+    const randomDir = getRandomBallDirection();
+    gameState.ball.dx = randomDir.dx;
+    gameState.ball.dy = randomDir.dy;
+    
+    // Delay antes de que la pelota se mueva
+    setTimeout(() => {
+        gameState.ball.moving = true;
+        io.emit('ballStart', { dx: gameState.ball.dx, dy: gameState.ball.dy });
+    }, GAME_CONFIG.BALL_START_DELAY);
+    
+    // Enviar estado de juego iniciado
+    io.emit('gameState', gameState);
+    io.emit('gameStarted');
+}
+
+// Función para crear un power-up avanzado
 function createPowerUp() {
-    if (Math.random() < GAME_CONFIG.POWERUP_CHANCE && gameState.powerups.length < 2) {
-        const types = ['speed', 'size', 'multiBall'];
+    if (Math.random() < GAME_CONFIG.POWERUP_CHANCE && gameState.powerups.length < GAME_CONFIG.MAX_POWERUPS) {
+        const types = ['speed', 'size', 'invisibility', 'teleport', 'multiBall', 'shield'];
         const type = types[Math.floor(Math.random() * types.length)];
         
         const powerup = {
@@ -83,14 +188,36 @@ function createPowerUp() {
             y: 100 + Math.random() * 400,
             type: type,
             active: true,
-            createdAt: Date.now()
+            createdAt: Date.now(),
+            id: Date.now() + Math.random()
         };
         
         gameState.powerups.push(powerup);
     }
 }
 
-// Función para aplicar power-up a un jugador
+// Función para crear obstáculos
+function createObstacle() {
+    if (Math.random() < GAME_CONFIG.OBSTACLE_CHANCE && gameState.obstacles.length < GAME_CONFIG.MAX_OBSTACLES) {
+        const types = ['block', 'forceField', 'teleporter'];
+        const type = types[Math.floor(Math.random() * types.length)];
+        
+        const obstacle = {
+            x: 200 + Math.random() * 400,
+            y: 100 + Math.random() * 400,
+            type: type,
+            active: true,
+            createdAt: Date.now(),
+            id: Date.now() + Math.random(),
+            width: 40,
+            height: 40
+        };
+        
+        gameState.obstacles.push(obstacle);
+    }
+}
+
+// Función para aplicar power-up avanzado a un jugador
 function applyPowerUp(player, powerupType) {
     const duration = GAME_CONFIG.POWERUP_DURATION;
     
@@ -102,19 +229,54 @@ function applyPowerUp(player, powerupType) {
             player.powerup = { type: 'size', duration: duration, startTime: Date.now() };
             player.height = 150; // Paleta más grande
             break;
+        case 'invisibility':
+            player.powerup = { type: 'invisibility', duration: duration, startTime: Date.now() };
+            player.invisible = true;
+            break;
+        case 'teleport':
+            player.powerup = { type: 'teleport', duration: duration, startTime: Date.now() };
+            // Teleportar a posición aleatoria
+            player.y = 100 + Math.random() * 400;
+            break;
         case 'multiBall':
             player.powerup = { type: 'multiBall', duration: duration, startTime: Date.now() };
+            createMultiBall();
+            break;
+        case 'shield':
+            player.powerup = { type: 'shield', duration: duration, startTime: Date.now() };
             break;
     }
 }
 
-// Función para limpiar power-ups expirados
-function cleanExpiredPowerUps() {
+// Función para crear pelotas múltiples
+function createMultiBall() {
+    for (let i = 0; i < 2; i++) {
+        const newBall = {
+            x: gameState.ball.x + (Math.random() - 0.5) * 50,
+            y: gameState.ball.y + (Math.random() - 0.5) * 50,
+            dx: (Math.random() - 0.5) * 8,
+            dy: (Math.random() - 0.5) * 8,
+            radius: 6,
+            speed: 8,
+            trail: [],
+            isMultiBall: true
+        };
+        gameState.multiBalls.push(newBall);
+    }
+}
+
+// Función para limpiar power-ups y obstáculos expirados
+function cleanExpiredItems() {
     const now = Date.now();
     
     // Limpiar power-ups del suelo
     gameState.powerups = gameState.powerups.filter(powerup => 
-        now - powerup.createdAt < 15000 // Power-ups duran 15 segundos en el suelo
+        now - powerup.createdAt < 20000 // Power-ups duran 20 segundos
+    );
+    
+    // Limpiar obstáculos
+    gameState.obstacles = gameState.obstacles.filter(obstacle => 
+        now - obstacle.createdAt < 30000 // Obstáculos duran 30 segundos
     );
     
     // Limpiar power-ups de jugadores
@@ -124,13 +286,16 @@ function cleanExpiredPowerUps() {
             if (paddle.powerup?.type === 'size') {
                 paddle.height = 100; // Restaurar tamaño normal
             }
+            if (paddle.powerup?.type === 'invisibility') {
+                paddle.invisible = false;
+            }
         }
     });
 }
 
-// Función para actualizar la posición de la pelota con física mejorada
+// Función para actualizar la posición de la pelota con física optimizada
 function updateBall() {
-    if (gameState.gameStatus !== 'playing') return;
+    if (gameState.gameStatus !== 'playing' || !gameState.ball.moving) return;
     
     const now = Date.now();
     const deltaTime = (now - gameState.lastUpdate) / 1000;
@@ -150,27 +315,33 @@ function updateBall() {
         gameState.ball.dy = (gameState.ball.dy / currentSpeed) * targetSpeed;
     }
     
+    // Actualizar trail de la pelota
+    gameState.ball.trail.unshift({ x: gameState.ball.x, y: gameState.ball.y });
+    if (gameState.ball.trail.length > 5) {
+        gameState.ball.trail.pop();
+    }
+    
     // Movemos la pelota según su velocidad
     gameState.ball.x += gameState.ball.dx;
     gameState.ball.y += gameState.ball.dy;
     
-    // Rebotamos la pelota en las paredes superior e inferior con física mejorada
+    // Rebotamos la pelota en las paredes superior e inferior
     if (gameState.ball.y <= gameState.ball.radius) {
         gameState.ball.y = gameState.ball.radius;
         gameState.ball.dy = -gameState.ball.dy * GAME_CONFIG.WALL_BOUNCE_FACTOR;
-        // Añadir un poco de aleatoriedad para evitar loops infinitos
-        gameState.ball.dy += (Math.random() - 0.5) * 2;
+        gameState.ball.dy += (Math.random() - 0.5) * 1; // Menos aleatoriedad
     } else if (gameState.ball.y >= 600 - gameState.ball.radius) {
         gameState.ball.y = 600 - gameState.ball.radius;
         gameState.ball.dy = -gameState.ball.dy * GAME_CONFIG.WALL_BOUNCE_FACTOR;
-        gameState.ball.dy += (Math.random() - 0.5) * 2;
+        gameState.ball.dy += (Math.random() - 0.5) * 1;
     }
     
     // Verificamos si la pelota golpea la paleta del jugador 1
     if (gameState.ball.x <= gameState.paddle1.x + gameState.paddle1.width + gameState.ball.radius &&
         gameState.ball.x >= gameState.paddle1.x - gameState.ball.radius &&
         gameState.ball.y >= gameState.paddle1.y - gameState.paddle1.height/2 &&
-        gameState.ball.y <= gameState.paddle1.y + gameState.paddle1.height/2) {
+        gameState.ball.y <= gameState.paddle1.y + gameState.paddle1.height/2 &&
+        !gameState.paddle1.invisible) {
         
         // Calcular punto de impacto para rebote realista
         const hitPoint = (gameState.ball.y - gameState.paddle1.y) / (gameState.paddle1.height / 2);
@@ -180,15 +351,17 @@ function updateBall() {
         gameState.ball.dx = Math.abs(gameState.ball.dx) * GAME_CONFIG.PADDLE_BOUNCE_FACTOR;
         gameState.ball.dy = Math.sin(angle) * gameState.ball.dx;
         
-        // Crear power-up ocasionalmente
+        // Crear power-up y obstáculo ocasionalmente
         createPowerUp();
+        createObstacle();
     }
     
     // Verificamos si la pelota golpea la paleta del jugador 2
     if (gameState.ball.x >= gameState.paddle2.x - gameState.paddle2.width - gameState.ball.radius &&
         gameState.ball.x <= gameState.paddle2.x + gameState.ball.radius &&
         gameState.ball.y >= gameState.paddle2.y - gameState.paddle2.height/2 &&
-        gameState.ball.y <= gameState.paddle2.y + gameState.paddle2.height/2) {
+        gameState.ball.y <= gameState.paddle2.y + gameState.paddle2.height/2 &&
+        !gameState.paddle2.invisible) {
         
         const hitPoint = (gameState.ball.y - gameState.paddle2.y) / (gameState.paddle2.height / 2);
         const angle = hitPoint * Math.PI / 3;
@@ -198,27 +371,37 @@ function updateBall() {
         gameState.ball.dy = Math.sin(angle) * Math.abs(gameState.ball.dx);
         
         createPowerUp();
+        createObstacle();
     }
     
-    // Verificamos si la pelota sale por la izquierda (punto para jugador 2)
-    if (gameState.ball.x <= 0) {
-        gameState.score.player2++;
-        if (gameState.score.player2 >= 5) {
-            gameState.gameStatus = 'finished';
-        } else {
-            resetGame();
+    // Verificar colisiones con obstáculos
+    gameState.obstacles.forEach((obstacle, index) => {
+        if (obstacle.active) {
+            if (gameState.ball.x >= obstacle.x && 
+                gameState.ball.x <= obstacle.x + obstacle.width &&
+                gameState.ball.y >= obstacle.y && 
+                gameState.ball.y <= obstacle.y + obstacle.height) {
+                
+                switch (obstacle.type) {
+                    case 'block':
+                        // Bloque destructible
+                        obstacle.active = false;
+                        gameState.obstacles.splice(index, 1);
+                        break;
+                    case 'forceField':
+                        // Campo de fuerza que rebota la pelota
+                        gameState.ball.dx = -gameState.ball.dx;
+                        gameState.ball.dy = -gameState.ball.dy;
+                        break;
+                    case 'teleporter':
+                        // Teleportar la pelota
+                        gameState.ball.x = 400 + (Math.random() - 0.5) * 600;
+                        gameState.ball.y = 100 + Math.random() * 400;
+                        break;
+                }
+            }
         }
-    }
-    
-    // Verificamos si la pelota sale por la derecha (punto para jugador 1)
-    if (gameState.ball.x >= 800) {
-        gameState.score.player1++;
-        if (gameState.score.player1 >= 5) {
-            gameState.gameStatus = 'finished';
-        } else {
-            resetGame();
-        }
-    }
+    });
     
     // Verificar colisiones con power-ups
     gameState.powerups.forEach((powerup, index) => {
@@ -242,26 +425,59 @@ function updateBall() {
         }
     });
     
-    // Limpiar power-ups expirados
-    cleanExpiredPowerUps();
+    // Verificamos si la pelota sale por la izquierda (punto para jugador 2)
+    if (gameState.ball.x <= 0) {
+        gameState.score.player2++;
+        if (gameState.score.player2 >= 5) {
+            gameState.gameStatus = 'finished';
+        } else {
+            resetGame();
+        }
+    }
+    
+    // Verificamos si la pelota sale por la derecha (punto para jugador 1)
+    if (gameState.ball.x >= 800) {
+        gameState.score.player1++;
+        if (gameState.score.player1 >= 5) {
+            gameState.gameStatus = 'finished';
+        } else {
+            resetGame();
+        }
+    }
+    
+    // Actualizar pelotas múltiples
+    updateMultiBalls();
+    
+    // Limpiar elementos expirados
+    cleanExpiredItems();
     
     // Animar línea central
-    gameState.centerLine.offset = (gameState.centerLine.offset + 2) % 20;
+    gameState.centerLine.offset = (gameState.centerLine.offset + 3) % 20;
 }
 
-// Función para actualizar las paletas con movimiento suave
-function updatePaddles() {
-    // Aplicar velocidad a las posiciones
-    gameState.paddle1.y += gameState.paddle1.speed;
-    gameState.paddle2.y += gameState.paddle2.speed;
-    
-    // Aplicar fricción para movimiento más suave
-    gameState.paddle1.speed *= 0.8;
-    gameState.paddle2.speed *= 0.8;
-    
-    // Limitar las paletas dentro del canvas
-    gameState.paddle1.y = Math.max(50, Math.min(550, gameState.paddle1.y));
-    gameState.paddle2.y = Math.max(50, Math.min(550, gameState.paddle2.y));
+// Función para actualizar pelotas múltiples
+function updateMultiBalls() {
+    gameState.multiBalls.forEach((ball, index) => {
+        // Mover pelota
+        ball.x += ball.dx;
+        ball.y += ball.dy;
+        
+        // Rebotar en paredes
+        if (ball.y <= ball.radius || ball.y >= 600 - ball.radius) {
+            ball.dy = -ball.dy;
+        }
+        
+        // Rebotar en paletas
+        if (ball.x <= 0 || ball.x >= 800) {
+            gameState.multiBalls.splice(index, 1);
+        }
+        
+        // Actualizar trail
+        ball.trail.unshift({ x: ball.x, y: ball.y });
+        if (ball.trail.length > 3) {
+            ball.trail.pop();
+        }
+    });
 }
 
 // Configuramos los eventos de Socket.io
@@ -272,26 +488,42 @@ io.on('connection', (socket) => {
     if (gameState.players.length < 2) {
         gameState.players.push(socket.id);
         
-        // Si tenemos 2 jugadores, iniciamos el juego
+        // Si tenemos 2 jugadores, iniciamos la cuenta regresiva
         if (gameState.players.length === 2) {
-            gameState.gameStatus = 'playing';
-            io.emit('gameStart');
+            resetGame(); // Esto iniciará la cuenta regresiva
         }
     }
     
     // Enviamos el estado actual del juego al nuevo jugador
     socket.emit('gameState', gameState);
     
-    // Manejamos el movimiento de las paletas con velocidad
+    // Manejamos el movimiento de las paletas - MOVIMIENTO DIRECTO SIN DELAY
     socket.on('movePaddle', (data) => {
+        // MOVIMIENTO INSTANTÁNEO - Sin interpolación ni delay
         if (data.player === 1) {
-            gameState.paddle1.speed = data.speed;
+            gameState.paddle1.y = data.y;
         } else if (data.player === 2) {
-            gameState.paddle2.speed = data.speed;
+            gameState.paddle2.y = data.y;
         }
         
         // Enviamos la actualización a todos los clientes
         io.emit('paddleMoved', data);
+    });
+    
+    // Manejamos cuando un jugador está listo
+    socket.on('playerReady', (data) => {
+        if (data.player === 1) {
+            gameState.paddle1.ready = true;
+        } else if (data.player === 2) {
+            gameState.paddle2.ready = true;
+        }
+        
+        // Verificar si ambos jugadores están listos
+        if (gameState.paddle1.ready && gameState.paddle2.ready && gameState.gameStatus === 'waiting') {
+            resetGame();
+        }
+        
+        io.emit('playerReadyUpdate', { player: data.player, ready: true });
     });
     
     // Manejamos la solicitud de reinicio del juego
@@ -315,24 +547,27 @@ io.on('connection', (socket) => {
         // Si no hay suficientes jugadores, pausamos el juego
         if (gameState.players.length < 2) {
             gameState.gameStatus = 'waiting';
+            gameState.paddle1.ready = false;
+            gameState.paddle2.ready = false;
             io.emit('gameState', gameState);
         }
     });
 });
 
-// Bucle del juego que se ejecuta cada 16ms (60 FPS)
+// Bucle del juego optimizado para 60 FPS
 setInterval(() => {
     updateBall();
-    updatePaddles();
     // Enviamos el estado actualizado a todos los clientes
     io.emit('gameState', gameState);
-}, 16);
+}, 16); // 60 FPS
 
 // Configuramos el puerto del servidor
 const PORT = process.env.PORT || 3000;
 
 // Iniciamos el servidor
 server.listen(PORT, () => {
-    console.log(`Servidor ejecutándose en el puerto ${PORT}`);
-    console.log(`Abre http://localhost:${PORT} en tu navegador`);
+    console.log(`🚀 Super Pong ejecutándose en el puerto ${PORT}`);
+    console.log(`🎮 Abre http://localhost:${PORT} en tu navegador`);
+    console.log(`⚡ Características: Power-ups, obstáculos, física optimizada`);
+    console.log(`🎯 Nuevo sistema: Cuenta regresiva y pelota aleatoria`);
 });
