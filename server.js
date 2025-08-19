@@ -22,11 +22,11 @@ const GAME_CONFIG = {
     BALL_ACCELERATION: 0.3,    // Aceleración por segundo
     PADDLE_BOUNCE_FACTOR: 1.3, // Factor de rebote en paletas
     WALL_BOUNCE_FACTOR: 0.9,   // Factor de rebote en paredes
-    POWERUP_CHANCE: 0.15,      // Probabilidad de spawn de power-up
+    POWERUP_CHANCE: 0.1,       // Probabilidad de spawn de power-up (reducida)
     POWERUP_DURATION: 8000,    // Duración del power-up en ms
-    OBSTACLE_CHANCE: 0.1,      // Probabilidad de spawn de obstáculo
-    MAX_POWERUPS: 3,           // Máximo de power-ups simultáneos
-    MAX_OBSTACLES: 2,          // Máximo de obstáculos simultáneos
+    OBSTACLE_CHANCE: 0.05,     // Probabilidad de spawn de obstáculo (reducida)
+    MAX_POWERUPS: 2,           // Máximo de power-ups simultáneos
+    MAX_OBSTACLES: 1,          // Máximo de obstáculos simultáneos
     COUNTDOWN_DURATION: 3000,  // Duración de la cuenta regresiva en ms
     BALL_START_DELAY: 1000     // Delay antes de que la pelota se mueva
 };
@@ -76,7 +76,7 @@ let gameState = {
 
 // Función para generar dirección aleatoria de la pelota
 function getRandomBallDirection() {
-    // Generar ángulo aleatorio entre -45 y 45 grados (o 135 y 225)
+    // Generar ángulo aleatorio entre -45 y 45 grados
     const angle = (Math.random() * 90 - 45) * (Math.PI / 180);
     
     // Decidir aleatoriamente si va hacia la izquierda o derecha
@@ -102,7 +102,6 @@ function getRandomBallPosition() {
 function resetGame() {
     // Posición aleatoria de la pelota
     const randomPos = getRandomBallPosition();
-    const randomDir = getRandomBallDirection();
     
     gameState.ball = { 
         x: randomPos.x,
@@ -180,11 +179,11 @@ function startGame() {
 // Función para crear un power-up avanzado
 function createPowerUp() {
     if (Math.random() < GAME_CONFIG.POWERUP_CHANCE && gameState.powerups.length < GAME_CONFIG.MAX_POWERUPS) {
-        const types = ['speed', 'size', 'invisibility', 'teleport', 'multiBall', 'shield'];
+        const types = ['speed', 'size', 'shield']; // Solo power-ups estables
         const type = types[Math.floor(Math.random() * types.length)];
         
         const powerup = {
-            x: 400 + (Math.random() - 0.5) * 400,
+            x: 200 + Math.random() * 400, // Evitar bordes
             y: 100 + Math.random() * 400,
             type: type,
             active: true,
@@ -199,7 +198,7 @@ function createPowerUp() {
 // Función para crear obstáculos
 function createObstacle() {
     if (Math.random() < GAME_CONFIG.OBSTACLE_CHANCE && gameState.obstacles.length < GAME_CONFIG.MAX_OBSTACLES) {
-        const types = ['block', 'forceField', 'teleporter'];
+        const types = ['block']; // Solo obstáculos estables
         const type = types[Math.floor(Math.random() * types.length)];
         
         const obstacle = {
@@ -229,39 +228,9 @@ function applyPowerUp(player, powerupType) {
             player.powerup = { type: 'size', duration: duration, startTime: Date.now() };
             player.height = 150; // Paleta más grande
             break;
-        case 'invisibility':
-            player.powerup = { type: 'invisibility', duration: duration, startTime: Date.now() };
-            player.invisible = true;
-            break;
-        case 'teleport':
-            player.powerup = { type: 'teleport', duration: duration, startTime: Date.now() };
-            // Teleportar a posición aleatoria
-            player.y = 100 + Math.random() * 400;
-            break;
-        case 'multiBall':
-            player.powerup = { type: 'multiBall', duration: duration, startTime: Date.now() };
-            createMultiBall();
-            break;
         case 'shield':
             player.powerup = { type: 'shield', duration: duration, startTime: Date.now() };
             break;
-    }
-}
-
-// Función para crear pelotas múltiples
-function createMultiBall() {
-    for (let i = 0; i < 2; i++) {
-        const newBall = {
-            x: gameState.ball.x + (Math.random() - 0.5) * 50,
-            y: gameState.ball.y + (Math.random() - 0.5) * 50,
-            dx: (Math.random() - 0.5) * 8,
-            dy: (Math.random() - 0.5) * 8,
-            radius: 6,
-            speed: 8,
-            trail: [],
-            isMultiBall: true
-        };
-        gameState.multiBalls.push(newBall);
     }
 }
 
@@ -282,13 +251,10 @@ function cleanExpiredItems() {
     // Limpiar power-ups de jugadores
     [gameState.paddle1, gameState.paddle2].forEach(paddle => {
         if (paddle.powerup && now - paddle.powerup.startTime > paddle.powerup.duration) {
-            paddle.powerup = null;
-            if (paddle.powerup?.type === 'size') {
+            if (paddle.powerup.type === 'size') {
                 paddle.height = 100; // Restaurar tamaño normal
             }
-            if (paddle.powerup?.type === 'invisibility') {
-                paddle.invisible = false;
-            }
+            paddle.powerup = null;
         }
     });
 }
@@ -329,11 +295,9 @@ function updateBall() {
     if (gameState.ball.y <= gameState.ball.radius) {
         gameState.ball.y = gameState.ball.radius;
         gameState.ball.dy = -gameState.ball.dy * GAME_CONFIG.WALL_BOUNCE_FACTOR;
-        gameState.ball.dy += (Math.random() - 0.5) * 1; // Menos aleatoriedad
     } else if (gameState.ball.y >= 600 - gameState.ball.radius) {
         gameState.ball.y = 600 - gameState.ball.radius;
         gameState.ball.dy = -gameState.ball.dy * GAME_CONFIG.WALL_BOUNCE_FACTOR;
-        gameState.ball.dy += (Math.random() - 0.5) * 1;
     }
     
     // Verificamos si la pelota golpea la paleta del jugador 1
@@ -388,16 +352,6 @@ function updateBall() {
                         obstacle.active = false;
                         gameState.obstacles.splice(index, 1);
                         break;
-                    case 'forceField':
-                        // Campo de fuerza que rebota la pelota
-                        gameState.ball.dx = -gameState.ball.dx;
-                        gameState.ball.dy = -gameState.ball.dy;
-                        break;
-                    case 'teleporter':
-                        // Teleportar la pelota
-                        gameState.ball.x = 400 + (Math.random() - 0.5) * 600;
-                        gameState.ball.y = 100 + Math.random() * 400;
-                        break;
                 }
             }
         }
@@ -445,39 +399,11 @@ function updateBall() {
         }
     }
     
-    // Actualizar pelotas múltiples
-    updateMultiBalls();
-    
     // Limpiar elementos expirados
     cleanExpiredItems();
     
     // Animar línea central
     gameState.centerLine.offset = (gameState.centerLine.offset + 3) % 20;
-}
-
-// Función para actualizar pelotas múltiples
-function updateMultiBalls() {
-    gameState.multiBalls.forEach((ball, index) => {
-        // Mover pelota
-        ball.x += ball.dx;
-        ball.y += ball.dy;
-        
-        // Rebotar en paredes
-        if (ball.y <= ball.radius || ball.y >= 600 - ball.radius) {
-            ball.dy = -ball.dy;
-        }
-        
-        // Rebotar en paletas
-        if (ball.x <= 0 || ball.x >= 800) {
-            gameState.multiBalls.splice(index, 1);
-        }
-        
-        // Actualizar trail
-        ball.trail.unshift({ x: ball.x, y: ball.y });
-        if (ball.trail.length > 3) {
-            ball.trail.pop();
-        }
-    });
 }
 
 // Configuramos los eventos de Socket.io
@@ -501,9 +427,12 @@ io.on('connection', (socket) => {
     socket.on('movePaddle', (data) => {
         // MOVIMIENTO INSTANTÁNEO - Sin interpolación ni delay
         if (data.player === 1) {
-            gameState.paddle1.y = data.y;
+            // Limitar movimiento dentro de los límites del canvas
+            const newY = Math.max(50, Math.min(550, data.y));
+            gameState.paddle1.y = newY;
         } else if (data.player === 2) {
-            gameState.paddle2.y = data.y;
+            const newY = Math.max(50, Math.min(550, data.y));
+            gameState.paddle2.y = newY;
         }
         
         // Enviamos la actualización a todos los clientes
@@ -570,4 +499,5 @@ server.listen(PORT, () => {
     console.log(`🎮 Abre http://localhost:${PORT} en tu navegador`);
     console.log(`⚡ Características: Power-ups, obstáculos, física optimizada`);
     console.log(`🎯 Nuevo sistema: Cuenta regresiva y pelota aleatoria`);
+    console.log(`🔧 Bugs críticos arreglados`);
 });

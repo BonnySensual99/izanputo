@@ -163,16 +163,16 @@ function createCountdownEffect(number) {
     const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1'];
     const color = colors[number - 1] || '#fff';
     
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 20; i++) { // Reducido para mejor rendimiento
         particles.push({
             x: 400,
             y: 300,
-            vx: (Math.random() - 0.5) * 20,
-            vy: (Math.random() - 0.5) * 20,
+            vx: (Math.random() - 0.5) * 15,
+            vy: (Math.random() - 0.5) * 15,
             life: 1,
-            decay: 0.03,
+            decay: 0.04,
             color: color,
-            size: Math.random() * 5 + 3
+            size: Math.random() * 4 + 2
         });
     }
 }
@@ -207,32 +207,32 @@ function markPlayerReady() {
 
 // Crear efecto de partículas al inicio
 function createStartEffect() {
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 50; i++) { // Reducido para mejor rendimiento
         particles.push({
             x: 400,
             y: 300,
-            vx: (Math.random() - 0.5) * 15,
-            vy: (Math.random() - 0.5) * 15,
+            vx: (Math.random() - 0.5) * 12,
+            vy: (Math.random() - 0.5) * 12,
             life: 1,
-            decay: 0.015,
+            decay: 0.02,
             color: `hsl(${Math.random() * 360}, 80%, 70%)`,
-            size: Math.random() * 4 + 2
+            size: Math.random() * 3 + 2
         });
     }
 }
 
 // Crear efecto de partículas al golpear
 function createHitEffect(x, y, color = '#fff') {
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 15; i++) { // Reducido para mejor rendimiento
         particles.push({
             x: x,
             y: y,
-            vx: (Math.random() - 0.5) * 10,
-            vy: (Math.random() - 0.5) * 10,
+            vx: (Math.random() - 0.5) * 8,
+            vy: (Math.random() - 0.5) * 8,
             life: 1,
-            decay: 0.04,
+            decay: 0.05,
             color: color,
-            size: Math.random() * 3 + 1
+            size: Math.random() * 2 + 1
         });
     }
 }
@@ -249,6 +249,11 @@ function updateParticles() {
         if (particle.life <= 0) {
             particles.splice(i, 1);
         }
+    }
+    
+    // Limitar el número máximo de partículas para evitar memory leaks
+    if (particles.length > 200) {
+        particles.splice(0, particles.length - 200);
     }
 }
 
@@ -350,12 +355,6 @@ function gameLoop(currentTime = 0) {
         // Dibujamos la pelota (estática durante cuenta regresiva)
         drawBall();
         
-        // Dibujamos pelotas múltiples
-        drawMultiBalls();
-        
-        // Dibujamos obstáculos
-        drawObstacles();
-        
         // Dibujamos power-ups
         drawPowerUps();
         
@@ -431,9 +430,6 @@ function getPowerupColor(type) {
     switch (type) {
         case 'speed': return '#00ff00';
         case 'size': return '#ff00ff';
-        case 'invisibility': return '#888888';
-        case 'teleport': return '#00ffff';
-        case 'multiBall': return '#ffff00';
         case 'shield': return '#ff8800';
         default: return '#ffffff';
     }
@@ -486,75 +482,6 @@ function drawBall() {
     
     // Resetear efectos
     ctx.shadowBlur = 0;
-}
-
-// Función para dibujar pelotas múltiples
-function drawMultiBalls() {
-    if (!gameState.multiBalls) return;
-    
-    gameState.multiBalls.forEach(ball => {
-        ctx.fillStyle = '#ff6b6b';
-        ctx.beginPath();
-        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Trail de pelotas múltiples
-        if (ball.trail && ball.trail.length > 0) {
-            ball.trail.forEach((pos, index) => {
-                const alpha = (ball.trail.length - index) / ball.trail.length;
-                ctx.globalAlpha = alpha * 0.2;
-                ctx.fillStyle = '#ff6b6b';
-                ctx.beginPath();
-                ctx.arc(pos.x, pos.y, ball.radius * 0.5, 0, Math.PI * 2);
-                ctx.fill();
-            });
-            ctx.globalAlpha = 1;
-        }
-    });
-}
-
-// Función para dibujar obstáculos
-function drawObstacles() {
-    if (!gameState.obstacles) return;
-    
-    gameState.obstacles.forEach(obstacle => {
-        if (obstacle.active) {
-            let color, symbol;
-            
-            switch (obstacle.type) {
-                case 'block':
-                    color = '#ff4444';
-                    symbol = '■';
-                    break;
-                case 'forceField':
-                    color = '#4444ff';
-                    symbol = '⚡';
-                    break;
-                case 'teleporter':
-                    color = '#44ff44';
-                    symbol = '🌀';
-                    break;
-            }
-            
-            // Efecto de brillo
-            ctx.shadowColor = color;
-            ctx.shadowBlur = 15;
-            
-            // Obstáculo principal
-            ctx.fillStyle = color;
-            ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
-            
-            // Símbolo del obstáculo
-            ctx.fillStyle = '#000';
-            ctx.font = '20px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(symbol, obstacle.x + obstacle.width/2, obstacle.y + obstacle.height/2);
-            
-            // Resetear sombra
-            ctx.shadowBlur = 0;
-        }
-    });
 }
 
 // Función para dibujar la línea central animada
@@ -610,9 +537,6 @@ function drawPowerUps() {
             switch (powerup.type) {
                 case 'speed': symbol = '⚡'; break;
                 case 'size': symbol = '⬆️'; break;
-                case 'invisibility': symbol = '👻'; break;
-                case 'teleport': symbol = '🌀'; break;
-                case 'multiBall': symbol = '🔴'; break;
                 case 'shield': symbol = '🛡️'; break;
             }
             
