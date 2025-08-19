@@ -1,0 +1,181 @@
+/* Reset básico de estilos */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Estilos del cuerpo de la página */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #000; /* Fondo negro como se solicitó */
+    color: #fff; /* Texto blanco */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+/* Contenedor principal del juego */
+.game-container {
+    text-align: center;
+    max-width: 900px;
+}
+
+/* Marcador de puntos */
+.score-board {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #111;
+    border-radius: 10px;
+    border: 2px solid #333;
+}
+
+.player-score {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.player-label {
+    font-size: 14px;
+    color: #ccc;
+    font-weight: bold;
+}
+
+.score {
+    font-size: 32px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.vs {
+    font-size: 24px;
+    font-weight: bold;
+    color: #ff6b6b;
+    margin: 0 20px;
+}
+
+/* Canvas del juego */
+#gameCanvas {
+    border: 3px solid #fff; /* Borde blanco como se solicitó */
+    border-radius: 5px;
+    background-color: #000; /* Fondo negro del canvas */
+    display: block;
+    margin: 0 auto 20px;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+/* Mensajes del juego */
+.game-messages {
+    margin-bottom: 20px;
+}
+
+.message {
+    padding: 15px;
+    background-color: #111;
+    border-radius: 8px;
+    border: 1px solid #333;
+    margin-bottom: 10px;
+}
+
+.message h2 {
+    color: #ff6b6b;
+    margin-bottom: 10px;
+}
+
+.message p {
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+/* Botón de reinicio */
+#resetButton {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    font-size: 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#resetButton:hover {
+    background-color: #45a049;
+}
+
+/* Instrucciones del juego */
+.instructions {
+    background-color: #111;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    text-align: left;
+}
+
+.instructions h3 {
+    color: #ff6b6b;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.instructions p {
+    margin-bottom: 8px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.instructions strong {
+    color: #4CAF50;
+}
+
+/* Clase para ocultar elementos */
+.hidden {
+    display: none;
+}
+
+/* Responsive design para pantallas pequeñas */
+@media (max-width: 900px) {
+    .game-container {
+        max-width: 100%;
+    }
+    
+    #gameCanvas {
+        width: 100%;
+        max-width: 800px;
+        height: auto;
+    }
+    
+    .score-board {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .vs {
+        margin: 10px 0;
+    }
+}
+
+/* Animaciones para elementos del juego */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.score {
+    animation: pulse 2s infinite;
+}
+
+/* Estilos para el estado de espera */
+#waitingMessage {
+    color: #ffd700;
+    font-weight: bold;
+    animation: pulse 1.5s infinite;
+}

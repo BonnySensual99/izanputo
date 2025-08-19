@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong Multijugador</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Contenedor principal del juego -->
+    <div class="game-container">
+        <!-- Marcador de puntos en la parte superior -->
+        <div class="score-board">
+            <div class="player-score">
+                <span class="player-label">Jugador 1</span>
+                <span class="score" id="score1">0</span>
+            </div>
+            <div class="vs">VS</div>
+            <div class="player-score">
+                <span class="player-label">Jugador 2</span>
+                <span class="score" id="score2">0</span>
+            </div>
+        </div>
+        
+        <!-- Canvas donde se dibuja el juego -->
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <!-- Mensajes del juego -->
+        <div class="game-messages">
+            <div id="waitingMessage" class="message">
+                Esperando jugadores... (0/2)
+            </div>
+            <div id="gameOverMessage" class="message hidden">
+                <h2>¡Juego Terminado!</h2>
+                <p id="winnerText"></p>
+                <button id="resetButton" onclick="resetGame()">Reiniciar Partida</button>
+            </div>
+        </div>
+        
+        <!-- Instrucciones del juego -->
+        <div class="instructions">
+            <h3>Controles:</h3>
+            <p><strong>Jugador 1:</strong> Teclas W (arriba) y S (abajo)</p>
+            <p><strong>Jugador 2:</strong> Teclas ↑ (arriba) y ↓ (abajo)</p>
+            <p>Primer jugador en llegar a 5 puntos gana</p>
+        </div>
+    </div>
+    
+    <!-- Scripts del juego -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
