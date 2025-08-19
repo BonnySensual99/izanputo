@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pong Multijugador</title>
+    <title>🏓 Pong Multijugador Pro</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -28,21 +28,50 @@
         <!-- Mensajes del juego -->
         <div class="game-messages">
             <div id="waitingMessage" class="message">
-                Esperando jugadores... (0/2)
+                ⏳ Esperando jugadores... (0/2)
             </div>
             <div id="gameOverMessage" class="message hidden">
-                <h2>¡Juego Terminado!</h2>
+                <h2>🎉 ¡Juego Terminado!</h2>
                 <p id="winnerText"></p>
-                <button id="resetButton" onclick="resetGame()">Reiniciar Partida</button>
+                <button id="resetButton" onclick="resetGame()">🔄 Reiniciar Partida</button>
+            </div>
+        </div>
+        
+        <!-- Información de power-ups -->
+        <div class="powerups-info">
+            <h3>⚡ Power-ups Disponibles:</h3>
+            <div class="powerup-grid">
+                <div class="powerup-item">
+                    <span class="powerup-icon">⚡</span>
+                    <span class="powerup-name">Velocidad</span>
+                    <span class="powerup-desc">Paleta más rápida</span>
+                </div>
+                <div class="powerup-item">
+                    <span class="powerup-icon">⬆️</span>
+                    <span class="powerup-name">Tamaño</span>
+                    <span class="powerup-desc">Paleta más grande</span>
+                </div>
+                <div class="powerup-item">
+                    <span class="powerup-icon">🔴</span>
+                    <span class="powerup-name">Multi-Ball</span>
+                    <span class="powerup-desc">Pelotas extra</span>
+                </div>
             </div>
         </div>
         
         <!-- Instrucciones del juego -->
         <div class="instructions">
-            <h3>Controles:</h3>
-            <p><strong>Jugador 1:</strong> Teclas W (arriba) y S (abajo)</p>
-            <p><strong>Jugador 2:</strong> Teclas ↑ (arriba) y ↓ (abajo)</p>
-            <p>Primer jugador en llegar a 5 puntos gana</p>
+            <h3>🎮 Controles del Juego:</h3>
+            <p><strong>Jugador 1 (Izquierda):</strong> Teclas <kbd>W</kbd> (arriba) y <kbd>S</kbd> (abajo)</p>
+            <p><strong>Jugador 2 (Derecha):</strong> Teclas <kbd>↑</kbd> (arriba) y <kbd>↓</kbd> (abajo)</p>
+            <p><strong>Objetivo:</strong> Primer jugador en llegar a 5 puntos gana</p>
+            <p><strong>Características:</strong> Física realista, velocidad progresiva y power-ups especiales</p>
+        </div>
+        
+        <!-- Footer con información adicional -->
+        <div class="game-footer">
+            <p>🎯 <strong>Consejo:</strong> Los power-ups aparecen cuando la pelota golpea las paletas</p>
+            <p>🚀 <strong>Característica:</strong> La pelota se acelera progresivamente para mayor desafío</p>
         </div>
     </div>
     
